@@ -1,0 +1,25 @@
+import {useEffect,useState} from 'react';
+import {Link,useParams} from 'react-router-dom';
+import {ArrowLeft,ChevronRight,Share2,Star,FlaskConical,ShieldCheck,ArrowUpRight} from 'lucide-react';
+import {toast} from 'sonner';
+import {api,amount,compact} from '../lib/api';
+import {useSimulation} from '../lib/simulation';
+import {TokenAvatar,BagArt} from '../components/BagArt';
+import {TokenChart} from '../components/trading/TokenChart';
+import {TradePanel} from '../components/trading/TradePanel';
+import {TokenActivity} from '../components/trading/TokenActivity';
+import {TokenBag} from '../components/trading/TokenBag';
+
+export default function TokenPage(){
+ const{id}=useParams();const[p,setP]=useState(null),[error,setError]=useState(false),[retry,setRetry]=useState(0),[watching,setWatching]=useState(false);const practice=useSimulation();
+ useEffect(()=>{let active=true;setP(null);setError(false);api.get(`/projects/${id}`).then(r=>active&&setP(r.data)).catch(()=>active&&setError(true));setWatching(JSON.parse(localStorage.getItem('paperbag-watchlist')||'[]').includes(id));return()=>{active=false;};},[id,retry]);
+ const watch=()=>{const list=JSON.parse(localStorage.getItem('paperbag-watchlist')||'[]');const next=watching?list.filter(x=>x!==id):[...new Set([...list,id])];localStorage.setItem('paperbag-watchlist',JSON.stringify(next));setWatching(!watching);toast.success(watching?'Removed from your watchlist.':'Added to your watchlist.');};
+ const share=async()=>{try{await navigator.clipboard.writeText(window.location.href);toast.success('Token link copied. Carry it forward.');}catch{toast.error('Could not copy the link. Copy the address from your browser.');}};
+ if(error)return <div className="token-page page-width"><div className="empty-state" data-testid="token-page-error"><BagArt progress={0}/><h1>This token couldn't be loaded.</h1><button onClick={()=>setRetry(v=>v+1)} className="button subtle" data-testid="token-page-retry">Try again</button><Link to="/bags" className="text-link" data-testid="token-error-back">Back to tokens <ArrowUpRight size={15}/></Link></div></div>;
+ if(!p)return <div className="token-page page-width" data-testid="token-page-loading"><div className="terminal-loading"><BagArt progress={45} animate/><span>Unpacking the token...</span></div></div>;
+ return <div className="token-page" data-testid="token-trading-page"><div className="token-breadcrumb"><Link to="/bags" data-testid="back-to-tokens"><ArrowLeft size={13}/> All tokens</Link><ChevronRight size={11}/><span>${p.ticker}</span><span className="preview-market-notice" data-testid="market-preview-banner"><FlaskConical size={12}/> PREVIEW MARKET · NO REAL FUNDS</span></div>
+  <header className="token-page-header"><div className="token-heading-identity"><TokenAvatar project={p}/><div><h1 data-testid="trading-token-name">{p.name} <span>${p.ticker}</span></h1><p data-testid="trading-token-pair">{p.ticker}/SOL <span>·</span> Pump.fun / PF <span>·</span><span className="market-status">{p.market_status} <small>(sample)</small></span></p></div></div><div className="token-header-actions"><button className={watching?'watch-token selected':'watch-token'} aria-label={watching?'Remove from watchlist':'Add to watchlist'} aria-pressed={watching} onClick={watch} data-testid="token-watchlist"><Star size={15} fill={watching?'currentColor':'none'}/><span>{watching?'Watching':'Watch'}</span></button><button className="watch-token" onClick={share} data-testid="token-share"><Share2 size={14}/><span>Share</span></button><a href="#trade" className="mobile-trade-link" data-testid="mobile-jump-trade">Trade <ArrowUpRight size={15}/></a></div></header>
+  <div className="token-market-stats" data-testid="token-market-stats">{[['Price',`$${p.price_usd.toFixed(7)}`,'price'],['Market cap',`$${compact(p.market_cap)}`,'mcap'],['24h volume',`$${compact(p.volume)}`,'volume'],['Liquidity',`$${compact(p.liquidity)}`,'liquidity'],['Holders',amount(p.holders),'holders'],['24h change',`${p.change_24h>0?'+':''}${p.change_24h}%`,'change']].map(([label,value,key])=><div key={key}><span>{label}</span><strong className={key==='change'?(p.change_24h>=0?'positive':'negative'):''} data-testid={`token-stat-${key}`}>{value}</strong></div>)}</div>
+  <div className="trading-layout"><div className="trading-main"><TokenChart project={p}/><div className="market-intervals" data-testid="token-price-changes">{[['5m',p.change_5m],['1h',p.change_1h],['6h',p.change_6h],['24h',p.change_24h]].map(([label,change])=><div key={label}><span>{label}</span><strong className={change>=0?'positive':'negative'}>{change>=0?'+':''}{change}%</strong></div>)}</div><TokenActivity project={p} simulation={practice.simulation}/><div className="token-safety-note" data-testid="token-safety-note"><ShieldCheck size={14}/><span>Sample token. No verified mint or live contract. Market data and holder counts are illustrative.</span></div></div><aside className="trading-sidebar"><TradePanel project={p} {...practice}/><TokenBag project={p}/></aside></div>
+ </div>;
+}

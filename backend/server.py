@@ -16,6 +16,8 @@ from pydantic import BaseModel, Field, ConfigDict, field_validator
 load_dotenv(Path(__file__).parent / '.env')
 from seed import PROJECTS, VAULTS
 from storage import put_object, get_object
+from market import market_fields, create_market_router
+from simulation import create_simulation_router
 
 client = AsyncIOMotorClient(os.environ['MONGO_URL'])
 db = client[os.environ['DB_NAME']]
@@ -25,8 +27,10 @@ async def lifespan(app):
     await db.projects.create_index('id', unique=True)
     await db.drafts.create_index('id', unique=True)
     await db.files.create_index('id', unique=True)
+    await db.simulations.create_index('id', unique=True)
     for project in PROJECTS:
         await db.projects.update_one({'id': project['id']}, {'$setOnInsert': project.copy()}, upsert=True)
+        await db.projects.update_one({'id':project['id'],'price_usd':{'$exists':False}},{'$set':market_fields(project['id'])})
     yield
     client.close()
 
@@ -58,6 +62,24 @@ class Project(PublicModel):
     icon: str
     history: list[dict]
     data_mode: str = 'illustrative'
+    price_usd: float
+    price_sol: float
+    sol_price_usd: float
+    market_cap: float
+    fdv: float
+    supply: float
+    holders: int
+    liquidity: float
+    change_5m: float
+    change_1h: float
+    change_6h: float
+    change_24h: float
+    bonding_progress: float
+    market_status: str
+    market_snapshot: int
+    created_at: str
+    mint_address: str | None = None
+    protocol: str
 
 Asset = Literal['SOL','USDC','DOGE','SHIB','BONK']
 class DraftInput(PublicModel):
@@ -110,11 +132,12 @@ async def config():
     return {'live_transactions':False, 'wallet_enabled':False, 'data_mode':'illustrative', 'assets':['SOL','USDC','DOGE','SHIB','BONK'], 'global_interval_hours':24}
 
 @api.get('/projects', response_model=list[Project])
-async def projects(sort: Literal['trending','volume','closest','opened','carry'] = 'trending', search: str = Query(default='', max_length=60)):
+async def projects(sort: Literal['trending','volume','closest','opened','carry','mcap','holders','newest'] = 'trending', search: str = Query(default='', max_length=60)):
     records = await db.projects.find({}, {'_id':0}).to_list(100)
     if search:
         records = [p for p in records if search.lower() in (p['name']+' '+p['ticker']+' '+p['asset']).lower()]
     keys = {'trending':lambda p:p['volume']*(1+p['progress']/100), 'volume':lambda p:p['volume'], 'closest':lambda p:p['progress'], 'opened':lambda p:p['cycle']-1, 'carry':lambda p:(p['carry_status']=='Active',p['carry_pnl'])}
+    keys.update({'mcap':lambda p:p['market_cap'],'holders':lambda p:p['holders'],'newest':lambda p:p['created_at']})
     return sorted(records, key=keys[sort], reverse=True)
 
 @api.get('/projects/{project_id}', response_model=Project)
@@ -210,3 +233,5 @@ async def download(file_id: str):
     return Response(data,media_type=record['content_type'],headers={'Cache-Control':'public, max-age=86400','X-Content-Type-Options':'nosniff'})
 
 app.include_router(api)
+app.include_router(create_market_router(db))
+app.include_router(create_simulation_router(db))

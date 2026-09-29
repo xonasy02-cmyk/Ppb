@@ -1,7 +1,11 @@
 import {useEffect,useRef,useState} from 'react';
 import {ArrowRight,ArrowLeft,Upload,Check,Wallet,Lock,Save,Trash2,ImagePlus} from 'lucide-react';
 import {toast} from 'sonner';
-import {Dialog,DialogContent,DialogTitle,DialogDescription} from './ui/dialog';
+// The launch flow now lives in its own page, not a modal overlay.
+const Dialog=({children})=><>{children}</>;
+const DialogContent=({children,...props})=><section {...props}>{children}</section>;
+const DialogTitle=props=><h2 {...props}/>;
+const DialogDescription=props=><p {...props}/>;
 import {api,API,errorText} from '../lib/api';
 const initial={name:'',ticker:'',description:'',image_id:null,website:'',twitter:'',telegram:'',target_sol:10,asset:'DOGE',global_asset:'DOGE',mode:'SHARE'};
 const assets=['SOL','USDC','DOGE','SHIB','BONK'];

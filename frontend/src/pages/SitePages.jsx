@@ -1,0 +1,27 @@
+import {useEffect,useState} from 'react';
+import {Link,useNavigate} from 'react-router-dom';
+import {ArrowRight,ArrowUpRight,Plus,TrendingUp,Gift} from 'lucide-react';
+import {api,compact} from '../lib/api';
+import {Hero} from '../components/Hero';
+import {BagArt,Reveal} from '../components/BagArt';
+import {BagIndex} from '../components/BagIndex';
+import {Carry} from '../components/Carry';
+import {Economy} from '../components/Economy';
+import {HowItWorks} from '../components/HowItWorks';
+import {Leaderboard} from '../components/Leaderboard';
+import {LaunchFlow} from '../components/LaunchFlow';
+import {Faq,LaunchCta} from '../components/Footer';
+
+export const HomePage=()=>{
+ const[overview,setOverview]=useState(null);useEffect(()=>{api.get('/overview').then(r=>setOverview(r.data)).catch(()=>{});},[]);
+ return <div data-testid="home-page"><Hero/><div className="home-statline page-width" data-testid="home-overview"><span><i/> A LITTLE ECOSYSTEM. A LOT TO CARRY.</span><div><strong>{overview?.projects??'—'}</strong> tokens</div><div><strong>{overview?`$${compact(overview.volume)}`:'—'}</strong> volume</div><div><strong>{overview?.bags_opened??'—'}</strong> Bags opened</div><small>Illustrative activity</small></div><BagIndex featured/><section className="page-width home-concept" data-testid="home-concept"><div><span className="eyebrow">MORE THAN A TRADING PAIR</span><h2>A token. A Bag.<br/>A reason to carry it.</h2><Link to="/ecosystem" className="text-link" data-testid="home-ecosystem-link">Unpack the ecosystem <ArrowUpRight size={16}/></Link></div><div className="home-concept-steps">{[[Plus,'Launch an idea.','Create your token. Choose what your Bag carries.'],[TrendingUp,'Let activity fill it.','Trading fills the Bag. Carry can lend a hand.'],[Gift,'Open. Reward. Repeat.','Share with holders or buy back and burn.']].map(([Icon,title,copy],i)=><Reveal key={title} delay={i*.1}><span className="concept-step-icon"><Icon size={18}/></span><h3>{title}</h3><p>{copy}</p></Reveal>)}</div></section><LaunchCta/></div>;
+};
+export const BagsPage=()=> <div className="standalone-page" data-testid="bags-page"><div className="page-breadcrumb page-width"><Link to="/" data-testid="bags-home-link">Home</Link><span>/</span><strong>Explore tokens</strong></div><BagIndex/></div>;
+export const EcosystemPage=()=>{
+ const navigate=useNavigate();const[data,setData]=useState({}),[error,setError]=useState(false),[retry,setRetry]=useState(0);
+ useEffect(()=>{let active=true;Promise.all([api.get('/overview'),api.get('/global'),api.get('/native')]).then(([o,g,n])=>{if(active){setData({overview:o.data,global:g.data,native:n.data});setError(false);}}).catch(()=>active&&setError(true));return()=>{active=false;};},[retry]);
+ return <div className="ecosystem-page standalone-page" data-testid="ecosystem-page"><div className="editorial-page-heading page-width"><span className="eyebrow">IT ALL COMES BACK TO THE BAG</span><h1 data-testid="ecosystem-page-title">Good things go around.</h1><p>From your project's first trade to the ecosystem's next Bag.<br/>Here's how Paperbag carries it forward.</p><div className="ecosystem-jumps"><a href="#how-it-works" data-testid="ecosystem-how-link">How it works</a><a href="#carry" data-testid="ecosystem-carry-link">Carry</a><a href="#global-bag" data-testid="ecosystem-global-link">Global Bag</a><a href="#paperbag" data-testid="ecosystem-native-link">$PAPERBAG</a></div></div>{error&&<div className="data-error page-width" data-testid="ecosystem-error">Couldn't load ecosystem data.<button onClick={()=>setRetry(x=>x+1)} data-testid="ecosystem-retry" className="text-link">Retry</button></div>}<HowItWorks overview={data.overview}/><Carry onOpen={id=>navigate(`/token/${id}`)}/><Economy global={data.global} native={data.native}/><Faq/></div>;
+};
+export const LeaderboardPage=()=>{const navigate=useNavigate();return <div className="standalone-page leaderboard-page" data-testid="leaderboard-page"><div className="page-breadcrumb page-width"><Link to="/" data-testid="leaderboard-home-link">Home</Link><span>/</span><strong>Leaderboard</strong></div><Leaderboard onOpen={id=>navigate(`/token/${id}`)}/></div>;};
+export const LaunchPage=()=> <div className="launch-page page-width" data-testid="launch-page"><div className="launch-page-intro"><Link to="/bags" className="text-link" data-testid="launch-browse-link">Explore tokens <ArrowUpRight size={15}/></Link><span className="eyebrow">YOUR NEXT BIG THING</span><h1>PACK AN IDEA.<br/>MAKE IT YOURS.</h1><p>A name, a little personality, and a Bag.<br/>That's where good things begin.</p><div className="launch-page-mascot"><BagArt progress={25} animate/><span className="hand-note">just add imagination.</span></div><div className="launch-page-notice" data-testid="launch-page-notice"><strong>Draft today. Launch when connected.</strong><p>Save your token and Bag settings. Real Pump.fun launches remain unavailable until the protocol is configured.</p></div></div><LaunchFlow open/></div>;
+export const NotFoundPage=()=> <div className="page-width not-found-page" data-testid="not-found-page"><BagArt progress={0}/><h1>This Bag is empty.</h1><p>We couldn't find that page.</p><Link to="/bags" className="button primary" data-testid="not-found-explore">Explore tokens <ArrowRight size={16}/></Link></div>;

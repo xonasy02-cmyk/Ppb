@@ -57,5 +57,39 @@ P2: creator draft library tied to verified wallet, richer history links, holder 
 - Removed fallback storage service host; storage now requires platform INTEGRATION_PROXY_URL. Upload/download regression remains green.
 - Final production frontend build compiled successfully (about 194.5KB gzipped JavaScript).
 
+## User-reported correction: actual launchpad structure and trading
+User complaint verbatim: “Gmn si bro ini kan launchpad masa gak ada mcap.volume holder dll, gak ada di klik page ke chart tokennya buy sell dll kaya launchpad pada umumnya gue minta jangan banyak page tapi gak semua jadi 1 juga kali bro,”
+User clarification: “Ya. Buat halaman trading lengkap dengan simulasi buy/sell yang jelas ditandai, tanpa menggunakan dana nyata” and “Buat seperti launchpad sebenernya, sesuai kan pagenya jangan semua jadi 1 halaman depan intinya saja jangan buat semua jadi 1”.
+
+### Revised architecture (supersedes the single-page decision above)
+- `/`: concise editorial home, ecosystem summary, three featured tokens with market stats, short concept intro and launch CTA. NOT a full ecosystem/dashboard dumped on the homepage.
+- `/bags`: dedicated token discovery with market cap, 24h volume, holders, changes and Bag progress; search, grid/list and 8 sort options.
+- `/token/:id`: proper full-page trading terminal, not a modal. Legacy `/bags/:id` redirects here. Price/market cap/volume/liquidity/holders/24h change, chart, trades/holders/my trades/about, practice buy/sell, persistent position and Bag sidebar/history.
+- `/launch`: dedicated creation page, original four-step draft flow preserved; no dialog overlay.
+- `/ecosystem`: Carry, Global, native PAPERBAG and mechanism explainers grouped together using targeted nav anchors.
+- `/leaderboard`: separate rankings page.
+- Unknown paths get a real friendly 404 view instead of silently returning home.
+
+### Trading implementation
+- Market stats seeded additively for the six example tokens; sample USD prices and SOL quote at a fixed illustrative 150 USD/SOL. No external/live data service and no real mint.
+- Lightweight Charts 5.2.1: deterministic illustrative candlesticks + volume, 1m/5m/15m/1h/4h, price/market-cap switch, line/candle switch, crosshair, pan/zoom/fit, responsive sizing and TradingView attribution.
+- `/api/market/:id/candles`, `/trades`, `/holders` return explicitly illustrative data. All chart timeframes finish at the same quote. OHLC generated from a shared minute series.
+- `/api/simulations` POST creates 100 virtual SOL; GET restores; POST `/:id/orders` executes simulated buy (SOL input) / sell (token amount); DELETE resets/removes toy state.
+- Balances, weighted cost basis, realized P&L and trade history persist in one Mongo document. Atomic version compare-and-swap prevents overspending; UUID request IDs ensure idempotency. Input validation rejects bad side, zero/negative/nonfinite amounts, insufficient funds/holdings, unknown token.
+- Simulated trades do NOT create actual tokens, change seeded market activity, fill Bags, or claim network fees/slippage. No wallet signing or auth added.
+- Practice panel provides buy presets, percent sell presets, estimated output, clear error/success state, position stats and reset confirmation. Market activity distinguishes sample traders and the user's practice fills. Holder labels are not fabricated real addresses.
+- Token share link and browser-persistent watch toggle.
+
+### Current verification
+- Initial build passed; screenshots confirmed market card layout and dedicated launch layout.
+- Found and fixed chart library's invalid browser locale (`en-USposix`) by explicitly setting chart localization locale `en-US`.
+- Browser inspection exercised a simulated buy, displayed its position and My trades, and navigation to standalone launch; subsequently verified by testing_agent as required below.
+- Required testing_agent verification completed: `/app/test_reports/iteration_2.json`. Agent explicitly confirms the reported missing-launchpad/page-structure problem is resolved; no blockers.
+- 30/30 backend regression tests passed, including dedicated market and simulation tests. Agent also validated duplicate order IDs and concurrent order guardrails.
+- Frontend verified by testing agent: standalone routes, required token metrics, full-page terminal, chart timeframes and modes, simulation buy/sell/persistence, holder/activity tabs, draft lifecycle, share/watch, legacy redirects and404.
+- Mobile/tablet390/375/320/768 passed with no document horizontal overflow.
+- Small residual Lenis warning on cross-page hashes removed by disabling Lenis automatic anchor interception; React Router already scrolls only once the destination exists.
+- Follow-up browser navigation check: Home → Carry → Global Bag → Bags → DOG terminal works without missing-anchor warnings. Final frontend production build compiled successfully (~259.5KB gzipped JS).
+
 ## Current handoff / next action
-First version complete within user-selected non-transactional scope. No live wallets, token launches, trading, swaps, burns or distributions enabled. Next substantive work is protocol integration only after real configuration and security requirements are provided. Suggested optional product enhancement: opt-in full-Bag notifications, without adding more navigation pages.
+User-reported correction verified by testing_agent. No live wallets, launches, trading, swaps, burns or distributions are enabled; practice buy/sell is deliberately non-financial. Next substantive work: configured real market feeds and audited Pump.fun integration. Optional product improvement: a dedicated watched-token filter and price alerts, without adding navigation pages.
